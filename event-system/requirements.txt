@@ -1,0 +1,5 @@
+flask==2.3.3
+flask-sqlalchemy==3.0.5
+flask-cors==4.0.0
+qrcode==7.4.2
+pillow==10.0.0
