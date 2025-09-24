@@ -1,1 +1,140 @@
 fetch('https://rg-systembasic.onrender.com/api/register')
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro de Eventos - PWA</title>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <link rel="manifest" href="/manifest.json">
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; }
+    #video, #canvas { display: block; margin: 10px auto; }
+    #canvas { display: none; }
+    button { padding: 10px; margin: 5px; }
+    input { margin: 5px; padding: 8px; width: 200px; }
+  </style>
+</head>
+<body>
+  <h1>Registro de Eventos</h1>
+  <div id="register">
+    <h2>Pre-registro</h2>
+    <input id="name" placeholder="Nombre" /><br>
+    <input id="email" placeholder="Email" /><br>
+    <button onclick="register()">Registrarse</button>
+  </div>
+  <div id="checkin">
+    <h2>Check-in Offline</h2>
+    <button onclick="downloadData()">Descargar Datos</button>
+    <button onclick="startScanner()">Iniciar Escáner</button>
+    <button onclick="syncData()">Sincronizar</button>
+    <video id="video" width="300" height="200"></video>
+    <canvas id="canvas" width="300" height="200"></canvas>
+  </div>
+  <script>
+    // Registrar Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(() => console.log('Service Worker registrado'))
+        .catch(err => console.error('Error al registrar SW:', err));
+    }
+
+    // Configurar IndexedDB
+    let db;
+    const request = indexedDB.open('eventDB', 1);
+    request.onupgradeneeded = () => {
+      db = request.result;
+      db.createObjectStore('users', { keyPath: 'id' });
+    };
+    request.onsuccess = () => {
+      db = request.result;
+    };
+
+    // Pre-registro
+    async function register() {
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      });
+      const result = await response.json();
+      if (result.qr_code) {
+        const img = document.createElement('img');
+        img.src = 'data:image/png;base64,' + result.qr_code;
+        document.body.appendChild(img);
+        alert('Registrado! QR generado.');
+      } else {
+        alert('Error: ' + result.error);
+      }
+    }
+
+    // Descargar datos para offline
+    async function downloadData() {
+      const response = await fetch('/api/users');
+      const users = await response.json();
+      const tx = db.transaction(['users'], 'readwrite');
+      const store = tx.objectStore('users');
+      users.forEach(user => store.put(user));
+      alert('Datos descargados para offline');
+    }
+
+    // Escanear QR
+    function startScanner() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(stream => {
+          video.srcObject = stream;
+          video.play();
+          scanQR();
+        })
+        .catch(err => alert('Error al acceder a la cámara: ' + err));
+
+      function scanQR() {
+        requestAnimationFrame(() => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code) {
+            const userId = code.data;
+            const tx = db.transaction(['users'], 'readwrite');
+            const store = tx.objectStore('users');
+            store.get(userId).onsuccess = (e) => {
+              const user = e.target.result;
+              if (user && !user.checked_in) {
+                user.checked_in = true;
+                store.put(user);
+                alert('Check-in confirmado: ' + user.name);
+              } else {
+                alert('Usuario inválido o ya registrado');
+              }
+            };
+          }
+          scanQR();
+        });
+      }
+    }
+
+    // Sincronizar datos
+    async function syncData() {
+      const tx = db.transaction(['users'], 'readonly');
+      const store = tx.objectStore('users');
+      const request = store.getAll();
+      request.onsuccess = async () => {
+        const users = request.result.filter(u => u.checked_in);
+        const response = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(users)
+        });
+        const result = await response.json();
+        alert(result.message);
+      };
+    }
+  </script>
+</body>
+</html>
