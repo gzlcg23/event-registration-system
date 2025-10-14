@@ -54,19 +54,27 @@ fetch('https://rg-systembasic.onrender.com/api/register')
     async function register() {
     const name = document.getElementById('name').value;
     const email = document.getElementById('email').value;
-    const response = await fetch('https://event-system-backend-xne0.onrender.com/api/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email })
-    });
-    const result = await response.json();
-    if (result.qr_code) {
-      const img = document.createElement('img');
-      img.src = 'data:image/png;base64,' + result.qr_code;
-      document.body.appendChild(img);
-      alert('Registrado! QR generado.');
-    } else {
-      alert('Error: ' + result.error);
+    if (!name || !email) {
+      alert('Por favor, ingresa nombre y email.');
+      return;
+    }
+    try {
+      const response = await fetch('https://event-system-backend-xne0.onrender.com/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      });
+      const result = await response.json();
+      if (result.qr_code) {
+        const img = document.createElement('img');
+        img.src = 'data:image/png;base64,' + result.qr_code;
+        document.body.appendChild(img);
+        alert('Registrado! QR generado.');
+      } else {
+        alert('Error: ' + (result.error || 'Registro falló'));
+      }
+    } catch (error) {
+      alert('Error de red: ' + error.message);
     }
   }
 
