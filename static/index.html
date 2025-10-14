@@ -52,35 +52,36 @@ fetch('https://rg-systembasic.onrender.com/api/register')
 
     // Pre-registro
     async function register() {
-    const name = document.getElementById('name').value;
-    const email = document.getElementById('email').value;
-    if (!name || !email) {
-      alert('Por favor, ingresa nombre y email.');
-      return;
-    }
-    try {
-      const response = await fetch('https://event-system-backend-xne0.onrender.com/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email })
-      });
-      const result = await response.json();
-      if (result.qr_code) {
-        const img = document.createElement('img');
-        img.src = 'data:image/png;base64,' + result.qr_code;
-        document.body.appendChild(img);
-        alert('Registrado! QR generado.');
-      } else {
-        alert('Error: ' + (result.error || 'Registro falló'));
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      if (!name || !email) {
+        alert('Por favor, ingresa nombre y email.');
+        return;
       }
-    } catch (error) {
-      alert('Error de red: ' + error.message);
+      try {
+        const response = await fetch('https://event-system-backend-xne0.onrender.com/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email })
+        });
+        const result = await response.json();
+        if (result.qr_code) {
+          const img = document.createElement('img');
+          img.src = 'data:image/png;base64,' + result.qr_code;
+          document.body.appendChild(img);
+          alert('Registrado! QR generado.');
+        } else {
+          alert('Error: ' + (result.error || 'Registro falló'));
+        }
+      } catch (error) {
+        alert('Error de red: ' + error.message);
+        console.error('Fetch error:', error);
+      }
     }
-  }
 
     // Descargar datos para offline
     async function downloadData() {
-      const response = await fetch('/api/users');
+      const response = await fetch('https://event-system-backend-xne0.onrender.com/api/users');
       const users = await response.json();
       const tx = db.transaction(['users'], 'readwrite');
       const store = tx.objectStore('users');
@@ -134,7 +135,7 @@ fetch('https://rg-systembasic.onrender.com/api/register')
       const request = store.getAll();
       request.onsuccess = async () => {
         const users = request.result.filter(u => u.checked_in);
-        const response = await fetch('/api/sync', {
+        const response = await fetch('https://event-system-backend-xne0.onrender.com/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(users)
