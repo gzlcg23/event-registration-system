@@ -13,12 +13,3 @@
     }
   ]
 }
-{
-  "name": "Test1",
-  "email": "test1@example.com"
-}
-{
-  "message": "Registrado exitosamente",
-  "user_id": 1,
-  "qr_code": "..."
-}

@@ -3,8 +3,7 @@ self.addEventListener('install', (event) => {
     caches.open('event-cache-v1').then((cache) => {
       return cache.addAll([
         '/',
-        '/index.html',
-        'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
+        '/index.html'
       ]);
     })
   );
@@ -20,7 +19,7 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      });
+      }).catch(() => caches.match('/index.html')); // Fallback a caché si falla la red
     })
   );
 });
