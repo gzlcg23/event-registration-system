@@ -1,15 +1,14 @@
-from flask_cors import CORS
-app = Flask(__name__)
-CORS(app)
+import os
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 import qrcode
 from io import BytesIO
 import base64
-import os
+from flask_cors import CORS
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///event.db'
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -38,7 +37,6 @@ def register():
     qr.save(buffer, format="PNG")
     qr_b64 = base64.b64encode(buffer.getvalue()).decode()
     
-    # Nota: Para email real, configura SMTP (e.g., SendGrid en Render)
     return jsonify({'message': 'Registrado exitosamente', 'user_id': user.id, 'qr_code': qr_b64})
 
 @app.route('/api/users', methods=['GET'])
@@ -57,8 +55,6 @@ def sync():
     return jsonify({'message': 'Sincronizado exitosamente'})
 
 if __name__ == '__main__':
-    os.makedirs(os.path.dirname('event.db'), exist_ok=True)
     with app.app_context():
         db.create_all()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
