@@ -29,7 +29,6 @@
   <h1>Registro de Eventos <img src="/icon.png" alt="Logo" style="width: 50px; height: 50px;"></h1>
   <img src="https://via.placeholder.com/600x200" alt="Banner del Evento" class="banner">
 
-  <!-- Pantalla para Usuarios (Asistentes) -->
   <div id="register" class="card p-3 mb-4">
     <h2>Pre-registro</h2>
     <input id="name" class="form-control mb-2" placeholder="Nombre" required />
@@ -60,14 +59,12 @@
     <button class="btn btn-secondary" onclick="syncData()">Sincronizar</button>
   </div>
 
-  <!-- Pantalla para Administradores (Dashboard) -->
   <div id="adminDashboard" class="card p-3">
     <h2>Panel de Administración</h2>
     <div class="banner" style="background-color: #e9ecef; padding: 10px;">
       <h3>Estadísticas</h3>
       <p>Total Asistentes: <span id="totalAttendees">0</span></p>
       <p>Última hora: <span id="hourAttendees">0</span></p>
-      <!-- Placeholder para gráfico -->
       <div id="attendanceChart" style="height: 200px;"></div>
     </div>
     <h3>Gestión de Usuarios</h3>
@@ -87,7 +84,6 @@
   </div>
 
   <script>
-    // Detectar rol desde la URL
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
     if (role === 'admin') {
@@ -123,7 +119,7 @@
         try {
           console.log(`Intentando ${url} con método ${options.method} (intento ${i + 1}/${retries})`);
           const response = await fetch(url, options);
-          console.log(`Respuesta: ${response.status} ${response.statusText}`);
+          console.log(`Respuesta: ${response.status} ${response.statusText}, Contenido: ${await response.text()}`);
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             return response;
@@ -151,7 +147,7 @@
         return;
       }
       try {
-        const response = await fetchWithRetry('https://event-registration-backend.onrender.com/api/register', {
+        const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, company, position, passType, interests })
@@ -186,7 +182,7 @@
 
     async function downloadData() {
       try {
-        const response = await fetchWithRetry('https://event-registration-backend.onrender.com/api/users', {
+        const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/users', {
           method: 'GET'
         });
         const users = await response.json();
@@ -252,7 +248,7 @@
       request.onsuccess = async () => {
         const users = request.result.filter(u => u.checked_in);
         try {
-          const response = await fetchWithRetry('https://event-registration-backend.onrender.com/api/sync', {
+          const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(users)
@@ -277,7 +273,6 @@
         const hourAttendees = users.filter(u => u.checked_in).length;
         document.getElementById('hourAttendees').textContent = hourAttendees;
         if (role === 'admin') {
-          // Simulación de gráfico (puedes añadir Chart.js aquí)
           document.getElementById('attendanceChart').innerHTML = `<p>Gráfico simulado (añade Chart.js)</p>`;
         }
       };
