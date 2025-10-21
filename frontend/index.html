@@ -138,10 +138,11 @@
     async function register() {
       const name = document.getElementById('name').value;
       const email = document.getElementById('email').value;
-      const company = document.getElementById('company').value;
-      const position = document.getElementById('position').value;
+      const company = document.getElementById('company').value || null; // Opcional
+      const position = document.getElementById('position').value || null; // Opcional
       const passType = document.getElementById('passType').value;
-      const interests = document.getElementById('interests').value;
+      const interests = document.getElementById('interests').value || null; // Opcional
+      console.log('Datos enviados:', { name, email, company, position, passType, interests }); // Depuración
       if (!name || !email) {
         alert('Por favor, ingresa nombre y email.');
         return;
@@ -153,7 +154,8 @@
           body: JSON.stringify({ name, email, company, position, passType, interests })
         });
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`HTTP error! status: ${response.status}, Detalle: ${errorText}`);
         }
         const result = await response.json();
         console.log('Resultado del registro:', result);
@@ -167,7 +169,7 @@
           alert('Error: ' + (result.error || 'Registro falló'));
         }
       } catch (error) {
-        alert('Error de red: ' + error.message + '. Intenta de nuevo en 30s (backend despertando).');
+        alert('Error de red: ' + error.message + '.');
         console.error('Error detallado:', error);
       }
     }

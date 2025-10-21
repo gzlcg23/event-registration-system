@@ -17,6 +17,10 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
+    company = db.Column(db.String(100))
+    position = db.Column(db.String(100))
+    pass_type = db.Column(db.String(50))  # Cambia a 'pass_type' para consistencia
+    interests = db.Column(db.String(200))
     checked_in = db.Column(db.Boolean, default=False)
 
 @app.route('/api/register', methods=['POST'])
@@ -24,12 +28,16 @@ def register():
     data = request.json
     name = data.get('name')
     email = data.get('email')
+    company = data.get('company')
+    position = data.get('position')
+    pass_type = data.get('passType')  # Cambia a 'passType' para coincidir con el frontend
+    interests = data.get('interests')
     if not name or not email:
         return jsonify({'error': 'Nombre y email requeridos'}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email ya registrado'}), 400
     
-    user = User(name=name, email=email)
+    user = User(name=name, email=email, company=company, position=position, pass_type=pass_type, interests=interests)
     db.session.add(user)
     db.session.commit()
     
