@@ -5,10 +5,8 @@ import qrcode
 from io import BytesIO
 import base64
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, Attachment, Email, To, Content
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -93,26 +91,25 @@ def send_email():
         if not email or not qr_code:
             return jsonify({'error': 'Email y QR requeridos'}), 400
 
-        # Configuración de email (ajusta con tus credenciales)
-        sender_email = os.environ.get('EMAIL_USER', 'tu-email@gmail.com')
-        password = os.environ.get('EMAIL_PASS', 'tu-app-password')
-        msg = MIMEMultipart()
-        msg['From'] = sender_email
-        msg['To'] = email
-        msg['Subject'] = 'Tu QR para el Evento'
+        sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+        from_email = Email(os.environ.get('EMAIL_USER', 'hola@redspace.mx'))
+        to_email = To(email)
+        subject = 'Tu QR para el Evento'
+        content = Content("text/plain", 'Adjunto encontrarás tu QR para el check-in del evento.')
+        mail = Mail(from_email, to_email, subject, content)
 
-        body = 'Adjunto encontrarás tu QR para el check-in del evento.'
-        msg.attach(MIMEText(body, 'plain'))
-
+        # Adjuntar el QR
         qr_image = base64.b64decode(qr_code)
-        image = MIMEImage(qr_image, name=f"qr_{email}.png")
-        msg.attach(image)
+        attachment = Attachment()
+        attachment.content = base64.b64encode(qr_image).decode()
+        attachment.type = 'image/png'
+        attachment.filename = f"qr_{email}.png"
+        attachment.disposition = 'attachment'
+        attachment.content_id = 'qr_image'
+        mail.attachment = attachment
 
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()
-            server.login(sender_email, password)
-            server.send_message(msg)
-
+        response = sg.send(mail)
+        print(f"Email enviado: {response.status_code} - {response.body}")
         return jsonify({'message': 'Email enviado exitosamente'})
     except Exception as e:
         print(f"Error en send_email: {str(e)}")
