@@ -7,6 +7,7 @@ import base64
 import os
 import random
 import string
+from sqlalchemy.exc import SQLAlchemyError
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -24,10 +25,14 @@ class User(db.Model):
     pass_type = db.Column(db.String(50))
     interests = db.Column(db.String(200))
     checked_in = db.Column(db.Boolean, default=False)
-    serial_number = db.Column(db.String(6), unique=True, nullable=False)  # Ejemplo: A1B2C3
+    serial_number = db.Column(db.String(6), unique=True, nullable=False)
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("Base de datos creada o verificada exitosamente.")
+    except SQLAlchemyError as e:
+        print(f"Error al crear la base de datos: {str(e)}")
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -44,7 +49,6 @@ def register():
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email ya registrado'}), 400
         
-        # Genera un número de serie único (ejemplo: 3 letras + 3 números)
         while True:
             serial = ''.join(random.choices(string.ascii_uppercase, k=3)) + ''.join(random.choices(string.digits, k=3))
             if not User.query.filter_by(serial_number=serial).first():
@@ -54,7 +58,7 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        qr_data = f"{user.id}:{serial}"  # Codifica ID + serial_number en el QR
+        qr_data = f"{user.id}:{serial}"
         qr = qrcode.make(qr_data)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
@@ -68,13 +72,18 @@ def register():
 @app.route('/api/users', methods=['GET'])
 def get_users():
     try:
+        print("Intentando obtener usuarios...")
         users = User.query.all()
+        print(f"Usuarios encontrados: {len(users)}")
         if not users:
             return jsonify([]), 200
         return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in, 'serial_number': u.serial_number} for u in users])
-    except Exception as e:
-        print(f"Error en get_users: {str(e)}")
+    except SQLAlchemyError as e:
+        print(f"Error de base de datos en get_users: {str(e)}")
         return jsonify({'error': 'Error al obtener usuarios', 'detail': str(e)}), 500
+    except Exception as e:
+        print(f"Error inesperado en get_users: {str(e)}")
+        return jsonify({'error': 'Error interno', 'detail': str(e)}), 500
 
 @app.route('/api/sync', methods=['POST'])
 def sync():
@@ -121,7 +130,6 @@ def send_email():
     except Exception as e:
         print(f"Error en send_email: {str(e)}")
         return jsonify({'error': 'Error al enviar email', 'detail': str(e)}), 500
-    
 
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
