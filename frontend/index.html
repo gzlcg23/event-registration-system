@@ -9,27 +9,29 @@
   <link rel="icon" href="/icon.png" type="image/png">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f8f9fa; }
-    h1 { color: #343a40; }
-    #register, #checkin, #adminDashboard { margin-bottom: 20px; max-width: 400px; margin: 0 auto; display: none; }
-    #adminDashboard { max-width: 600px; }
-    input, select { margin: 5px; }
-    button { margin: 5px; }
-    .qr-img { max-width: 200px; margin: 10px auto; border: 2px solid #007bff; border-radius: 8px; }
-    .banner { width: 100%; height: auto; }
-    #video, #canvas { display: none; margin: 10px auto; }
-    .checkin-status { color: #28a745; font-weight: bold; }
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+    h1 { color: #1a73e8; margin-bottom: 20px; }
+    #register, #adminDashboard { margin-bottom: 20px; max-width: 500px; margin: 0 auto; }
+    #adminDashboard { max-width: 800px; }
+    .card { border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); padding: 20px; }
+    input, select { margin: 5px; width: 100%; max-width: 300px; }
+    button { margin: 5px; padding: 8px 16px; }
+    .qr-img { max-width: 200px; margin: 10px auto; border: 2px solid #1a73e8; border-radius: 8px; }
+    .banner { width: 100%; height: auto; border-radius: 10px; }
+    #video, #canvas { display: none; margin: 10px auto; border: 2px solid #1a73e8; border-radius: 8px; }
+    .checkin-status { color: #34a853; font-weight: bold; }
     .loading { color: #6c757d; font-style: italic; }
-    table { width: 100%; margin: 10px 0; }
-    th, td { padding: 8px; border: 1px solid #dee2e6; }
+    table { width: 100%; margin: 10px 0; border-collapse: collapse; }
+    th, td { padding: 10px; border: 1px solid #dee2e6; text-align: left; }
+    .chart-container { height: 300px; margin: 20px 0; }
     @media (min-width: 768px) { .banner { width: 50%; } }
   </style>
 </head>
 <body>
-  <h1>Registro de Eventos <img src="/icon.png" alt="Logo" style="width: 50px; height: 50px;"></h1>
+  <h1>Registro de Eventos <img src="/icon.png" alt="Logo" style="width: 50px; height: 50px; vertical-align: middle;"></h1>
   <img src="https://via.placeholder.com/600x200" alt="Banner del Evento" class="banner">
 
-  <div id="register" class="card p-3 mb-4">
+  <div id="register" class="card">
     <h2>Pre-registro</h2>
     <input id="name" class="form-control mb-2" placeholder="Nombre" required />
     <input id="email" class="form-control mb-2" placeholder="Email" type="email" required />
@@ -48,24 +50,13 @@
     <button class="btn btn-secondary" onclick="downloadQR()">Descargar QR</button>
   </div>
 
-  <div id="checkin" class="card p-3">
-    <h2>Check-in Offline</h2>
-    <video id="video" width="300" height="200"></video>
-    <canvas id="canvas" width="300" height="200"></canvas>
-    <p id="scanMessage">Escanea tu QR</p>
-    <p id="checkinStatus" class="checkin-status" style="display: none;"></p>
-    <button class="btn btn-secondary" onclick="downloadData()">Descargar Datos</button>
-    <button class="btn btn-secondary" onclick="startScanner()">Iniciar Escáner</button>
-    <button class="btn btn-secondary" onclick="syncData()">Sincronizar</button>
-  </div>
-
-  <div id="adminDashboard" class="card p-3">
+  <div id="adminDashboard" class="card" style="display: none;">
     <h2>Panel de Administración</h2>
-    <div class="banner" style="background-color: #e9ecef; padding: 10px;">
+    <div class="banner" style="background-color: #e9ecef; padding: 20px; border-radius: 10px;">
       <h3>Estadísticas</h3>
       <p>Total Asistentes: <span id="totalAttendees">0</span></p>
       <p>Última hora: <span id="hourAttendees">0</span></p>
-      <div id="attendanceChart" style="height: 200px;"></div>
+      <div id="attendanceChart" class="chart-container"></div>
     </div>
     <h3>Gestión de Usuarios</h3>
     <select id="filterPassType" class="form-control mb-2" onchange="filterUsers()">
@@ -73,6 +64,14 @@
       <option value="free">Gratis</option>
       <option value="paid">Pago</option>
     </select>
+    <div id="checkin" style="margin-top: 20px;">
+      <h4>Check-in Offline</h4>
+      <video id="video" width="300" height="200"></video>
+      <canvas id="canvas" width="300" height="200"></canvas>
+      <p id="scanMessage">Escanea tu QR</p>
+      <p id="checkinStatus" class="checkin-status" style="display: none;"></p>
+      <button class="btn btn-secondary" onclick="startScanner()">Iniciar Escáner</button>
+    </div>
     <table id="usersTable">
       <thead>
         <tr><th>Nombre</th><th>Email</th><th>Check-in</th></tr>
@@ -83,17 +82,16 @@
     <button class="btn btn-secondary" onclick="syncData()">Sincronizar Datos</button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const role = urlParams.get('role');
     if (role === 'admin') {
       document.getElementById('adminDashboard').style.display = 'block';
       document.getElementById('register').style.display = 'none';
-      document.getElementById('checkin').style.display = 'none';
       loadDashboard();
     } else {
       document.getElementById('register').style.display = 'block';
-      document.getElementById('checkin').style.display = 'block';
       document.getElementById('adminDashboard').style.display = 'none';
     }
 
@@ -123,7 +121,7 @@
           if (response.ok) {
             const text = await response.text();
             console.log(`Contenido: ${text}`);
-            return { response, text };  // Retornar ambos para uso posterior
+            return { response, text };
           } else {
             console.log(`Error: ${await response.text()}`);
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -154,14 +152,19 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, company, position, passType, interests })
         });
-        const result = JSON.parse(text);  // Parsear el texto manualmente
+        const result = JSON.parse(text);
         console.log('Resultado del registro:', result);
         if (result.qr_code) {
           const qrImage = document.getElementById('qrImage');
           qrImage.src = 'data:image/png;base64,' + result.qr_code;
           document.getElementById('qrContainer').style.display = 'block';
-          alert('Registrado! QR generado.');
-          if (role === 'admin') loadUsers();
+          sendEmail(email, result.qr_code); // Enviar QR por email
+          alert('Registrado! QR generado y enviado a tu email.');
+          document.getElementById('name').value = '';
+          document.getElementById('email').value = '';
+          document.getElementById('company').value = '';
+          document.getElementById('position').value = '';
+          document.getElementById('interests').value = '';
         } else {
           alert('Error: ' + (result.error || 'Registro falló'));
         }
@@ -169,6 +172,16 @@
         alert('Error de red: ' + error.message + '.');
         console.error('Error detallado:', error);
       }
+    }
+
+    function sendEmail(email, qrCode) {
+      fetch('https://event-registration-system-9yji.onrender.com/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, qrCode: qrCode })
+      }).then(response => response.text())
+        .then(text => console.log('Email enviado:', text))
+        .catch(error => console.error('Error enviando email:', error));
     }
 
     function downloadQR() {
@@ -219,25 +232,35 @@
           const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code) {
             const userId = code.data;
-            const tx = db.transaction(['users'], 'readwrite');
-            const store = tx.objectStore('users');
-            store.get(userId).onsuccess = (e) => {
-              const user = e.target.result;
-              if (user && !user.checked_in) {
-                user.checked_in = true;
-                store.put(user);
-                document.getElementById('checkinStatus').textContent = `Check-in confirmado: ${user.name}`;
-                document.getElementById('checkinStatus').style.display = 'block';
-                updateStats();
-                if (role === 'admin') loadUsers();
-              } else {
-                alert('Usuario inválido o ya registrado');
-              }
-            };
+            checkInUser(userId);
           }
           scanQR();
         });
       }
+    }
+
+    function checkInUser(userId) {
+      const tx = db.transaction(['users'], 'readwrite');
+      const store = tx.objectStore('users');
+      store.get(parseInt(userId)).onsuccess = (e) => {
+        const user = e.target.result;
+        if (user) {
+          if (user.checked_in) {
+            document.getElementById('checkinStatus').textContent = `QR inválido o ya usado: ${user.name}`;
+            document.getElementById('checkinStatus').style.display = 'block';
+          } else {
+            user.checked_in = true;
+            store.put(user);
+            document.getElementById('checkinStatus').textContent = `Check-in confirmado: ${user.name}`;
+            document.getElementById('checkinStatus').style.display = 'block';
+            updateStats();
+            loadUsers();
+          }
+        } else {
+          document.getElementById('checkinStatus').textContent = 'QR inválido';
+          document.getElementById('checkinStatus').style.display = 'block';
+        }
+      };
     }
 
     async function syncData() {
@@ -255,7 +278,7 @@
           const result = JSON.parse(text);
           alert(result.message);
           updateStats();
-          if (role === 'admin') loadUsers();
+          loadUsers();
         } catch (error) {
           alert('Error al sincronizar: ' + error.message);
         }
@@ -272,7 +295,7 @@
         const hourAttendees = users.filter(u => u.checked_in).length;
         document.getElementById('hourAttendees').textContent = hourAttendees;
         if (role === 'admin') {
-          document.getElementById('attendanceChart').innerHTML = `<p>Gráfico simulado (añade Chart.js)</p>`;
+          updateChart();
         }
       };
     }
@@ -326,6 +349,42 @@
         link.download = 'users.csv';
         link.click();
       };
+    }
+
+    function updateChart() {
+      const tx = db.transaction(['users'], 'readonly');
+      const store = tx.objectStore('users');
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const users = request.result;
+        const checkedIn = users.filter(u => u.checked_in).length;
+        const notCheckedIn = users.length - checkedIn;
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['Check-in', 'Sin Check-in'],
+            datasets: [{
+              data: [checkedIn, notCheckedIn],
+              backgroundColor: ['#34a853', '#e74c3c']
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'top' },
+              title: { display: true, text: 'Estadísticas de Asistencia' }
+            }
+          }
+        });
+      };
+    }
+
+    function loadDashboard() {
+      downloadData();
+      updateStats();
+      loadUsers();
+      updateChart();
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>

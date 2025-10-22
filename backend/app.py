@@ -5,11 +5,14 @@ import qrcode
 from io import BytesIO
 import base64
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})  # CORS habilitado
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# Configuración de la base de datos desde la variable de entorno de Render
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -24,7 +27,6 @@ class User(db.Model):
     interests = db.Column(db.String(200))
     checked_in = db.Column(db.Boolean, default=False)
 
-# Inicializar la base de datos
 with app.app_context():
     db.create_all()
 
@@ -62,7 +64,7 @@ def get_users():
     try:
         users = User.query.all()
         if not users:
-            return jsonify([]), 200  # Retorna un array vacío si no hay usuarios
+            return jsonify([]), 200
         return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in} for u in users])
     except Exception as e:
         print(f"Error en get_users: {str(e)}")
@@ -81,6 +83,40 @@ def sync():
     except Exception as e:
         print(f"Error en sync: {str(e)}")
         return jsonify({'error': 'Error al sincronizar', 'detail': str(e)}), 500
+
+@app.route('/api/send-email', methods=['POST'])
+def send_email():
+    try:
+        data = request.json
+        email = data.get('email')
+        qr_code = data.get('qrCode')
+        if not email or not qr_code:
+            return jsonify({'error': 'Email y QR requeridos'}), 400
+
+        # Configuración de email (ajusta con tus credenciales)
+        sender_email = os.environ.get('EMAIL_USER', 'tu-email@gmail.com')
+        password = os.environ.get('EMAIL_PASS', 'tu-app-password')
+        msg = MIMEMultipart()
+        msg['From'] = sender_email
+        msg['To'] = email
+        msg['Subject'] = 'Tu QR para el Evento'
+
+        body = 'Adjunto encontrarás tu QR para el check-in del evento.'
+        msg.attach(MIMEText(body, 'plain'))
+
+        qr_image = base64.b64decode(qr_code)
+        image = MIMEImage(qr_image, name=f"qr_{email}.png")
+        msg.attach(image)
+
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()
+            server.login(sender_email, password)
+            server.send_message(msg)
+
+        return jsonify({'message': 'Email enviado exitosamente'})
+    except Exception as e:
+        print(f"Error en send_email: {str(e)}")
+        return jsonify({'error': 'Error al enviar email', 'detail': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
