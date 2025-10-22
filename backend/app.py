@@ -1,13 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 import qrcode
 from io import BytesIO
 import base64
-import os  # Añadido para usar os.environ
+import os
 
 app = Flask(__name__)
-# Configura la URL de la base de datos desde la variable de entorno de Render
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://...')
+CORS(app, resources={r"/api/*": {"origins": "*"}})  # Habilitamos CORS para todas las origins (para pruebas)
+
+# Configuración de la base de datos desde la variable de entorno de Render
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -21,7 +24,7 @@ class User(db.Model):
     interests = db.Column(db.String(200))
     checked_in = db.Column(db.Boolean, default=False)
 
-# Inicializa la base de datos solo una vez
+# Inicializar la base de datos
 with app.app_context():
     db.create_all()
 
@@ -51,23 +54,31 @@ def register():
         
         return jsonify({'message': 'Registrado exitosamente', 'user_id': user.id, 'qr_code': qr_b64})
     except Exception as e:
-        print(f"Error en register: {str(e)}")  # Depuración
+        print(f"Error en register: {str(e)}")
         return jsonify({'error': 'Error interno del servidor', 'detail': str(e)}), 500
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
-    users = User.query.all()
-    return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in} for u in users])
+    try:
+        users = User.query.all()
+        return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in} for u in users])
+    except Exception as e:
+        print(f"Error en get_users: {str(e)}")
+        return jsonify({'error': 'Error al obtener usuarios'}), 500
 
 @app.route('/api/sync', methods=['POST'])
 def sync():
-    data = request.json
-    for user_data in data:
-        user = User.query.get(user_data['id'])
-        if user and not user.checked_in and user_data.get('checked_in'):
-            user.checked_in = True
-            db.session.commit()
-    return jsonify({'message': 'Sincronizado exitosamente'})
+    try:
+        data = request.json
+        for user_data in data:
+            user = User.query.get(user_data['id'])
+            if user and not user.checked_in and user_data['checked_in']:
+                user.checked_in = True
+                db.session.commit()
+        return jsonify({'message': 'Sincronizado exitosamente'})
+    except Exception as e:
+        print(f"Error en sync: {str(e)}")
+        return jsonify({'error': 'Error al sincronizar'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
