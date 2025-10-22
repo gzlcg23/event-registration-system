@@ -5,8 +5,8 @@ import qrcode
 from io import BytesIO
 import base64
 import os
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Attachment, Email, To, Content
+import random
+import string
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -24,6 +24,7 @@ class User(db.Model):
     pass_type = db.Column(db.String(50))
     interests = db.Column(db.String(200))
     checked_in = db.Column(db.Boolean, default=False)
+    serial_number = db.Column(db.String(6), unique=True, nullable=False)  # Ejemplo: A1B2C3
 
 with app.app_context():
     db.create_all()
@@ -43,16 +44,23 @@ def register():
         if User.query.filter_by(email=email).first():
             return jsonify({'error': 'Email ya registrado'}), 400
         
-        user = User(name=name, email=email, company=company, position=position, pass_type=pass_type, interests=interests)
+        # Genera un número de serie único (ejemplo: 3 letras + 3 números)
+        while True:
+            serial = ''.join(random.choices(string.ascii_uppercase, k=3)) + ''.join(random.choices(string.digits, k=3))
+            if not User.query.filter_by(serial_number=serial).first():
+                break
+
+        user = User(name=name, email=email, company=company, position=position, pass_type=pass_type, interests=interests, serial_number=serial)
         db.session.add(user)
         db.session.commit()
         
-        qr = qrcode.make(str(user.id))
+        qr_data = f"{user.id}:{serial}"  # Codifica ID + serial_number en el QR
+        qr = qrcode.make(qr_data)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
         qr_b64 = base64.b64encode(buffer.getvalue()).decode()
         
-        return jsonify({'message': 'Registrado exitosamente', 'user_id': user.id, 'qr_code': qr_b64})
+        return jsonify({'message': 'Registrado exitosamente', 'user_id': user.id, 'qr_code': qr_b64, 'serial_number': serial})
     except Exception as e:
         print(f"Error en register: {str(e)}")
         return jsonify({'error': 'Error interno del servidor', 'detail': str(e)}), 500
@@ -63,7 +71,7 @@ def get_users():
         users = User.query.all()
         if not users:
             return jsonify([]), 200
-        return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in} for u in users])
+        return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in, 'serial_number': u.serial_number} for u in users])
     except Exception as e:
         print(f"Error en get_users: {str(e)}")
         return jsonify({'error': 'Error al obtener usuarios', 'detail': str(e)}), 500
@@ -92,7 +100,7 @@ def send_email():
             return jsonify({'error': 'Email y QR requeridos'}), 400
 
         sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-        from_email = Email(os.environ.get('EMAIL_USER', 'no-reply@soportedigitalmx.com'))
+        from_email = Email(os.environ.get('EMAIL_USER', 'no-reply@tu-dominio.com'))
         to_email = To(email)
         subject = 'Tu QR para el Evento'
         content = Content("text/plain", 'Adjunto encontrarás tu QR para el check-in del evento.')
@@ -113,6 +121,20 @@ def send_email():
     except Exception as e:
         print(f"Error en send_email: {str(e)}")
         return jsonify({'error': 'Error al enviar email', 'detail': str(e)}), 500
+    
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'Usuario eliminado exitosamente'})
+    except Exception as e:
+        print(f"Error en delete_user: {str(e)}")
+        return jsonify({'error': 'Error al eliminar usuario', 'detail': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

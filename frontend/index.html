@@ -24,6 +24,7 @@
     table { width: 100%; margin: 10px 0; border-collapse: collapse; }
     th, td { padding: 10px; border: 1px solid #dee2e6; text-align: left; }
     .chart-container { height: 300px; margin: 20px 0; }
+    .delete-btn { color: #dc3545; cursor: pointer; }
     @media (min-width: 768px) { .banner { width: 50%; } }
   </style>
 </head>
@@ -74,7 +75,7 @@
     </div>
     <table id="usersTable">
       <thead>
-        <tr><th>Nombre</th><th>Email</th><th>Check-in</th></tr>
+        <tr><th>Nombre</th><th>Email</th><th>Número de Serie</th><th>Check-in</th><th>Acciones</th></tr>
       </thead>
       <tbody id="usersTableBody"></tbody>
     </table>
@@ -163,8 +164,8 @@
           const qrImage = document.getElementById('qrImage');
           qrImage.src = 'data:image/png;base64,' + result.qr_code;
           document.getElementById('qrContainer').style.display = 'block';
-          // sendEmail(email, result.qr_code); // Descomenta si SES está configurado
-          alert('Registrado! QR generado y enviado a tu email.');
+          // sendEmail(email, result.qr_code); // Descomenta si SES/SendGrid está configurado
+          alert(`Registrado! QR generado (Serie: ${result.serial_number}).`);
           document.getElementById('name').value = '';
           document.getElementById('email').value = '';
           document.getElementById('company').value = '';
@@ -228,21 +229,21 @@
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code) {
-            const userId = code.data;
-            checkInUser(userId);
+            const [userId, serial] = code.data.split(':');
+            checkInUser(userId, serial);
           }
           scanQR();
         });
       }
     }
 
-    function checkInUser(userId) {
+    function checkInUser(userId, serial) {
       if (db) {
         const tx = db.transaction(['users'], 'readwrite');
         const store = tx.objectStore('users');
         store.get(parseInt(userId)).onsuccess = (e) => {
           const user = e.target.result;
-          if (user) {
+          if (user && user.serial_number === serial) {
             if (user.checked_in) {
               document.getElementById('checkinStatus').textContent = `QR inválido o ya usado: ${user.name}`;
               document.getElementById('checkinStatus').style.display = 'block';
@@ -314,7 +315,7 @@
           tbody.innerHTML = '';
           users.forEach(user => {
             const row = document.createElement('tr');
-            row.innerHTML = `<td>${user.name}</td><td>${user.email}</td><td>${user.checked_in ? 'Sí' : 'No'}</td>`;
+            row.innerHTML = `<td>${user.name}</td><td>${user.email}</td><td>${user.serial_number}</td><td>${user.checked_in ? 'Sí' : 'No'}</td><td><span class="delete-btn" onclick="deleteUser(${user.id})">Eliminar</span></td>`;
             tbody.appendChild(row);
           });
         };
@@ -333,7 +334,7 @@
           tbody.innerHTML = '';
           users.filter(user => filter === 'all' || user.passType === filter).forEach(user => {
             const row = document.createElement('tr');
-            row.innerHTML = `<td>${user.name}</td><td>${user.email}</td><td>${user.checked_in ? 'Sí' : 'No'}</td>`;
+            row.innerHTML = `<td>${user.name}</td><td>${user.email}</td><td>${user.serial_number}</td><td>${user.checked_in ? 'Sí' : 'No'}</td><td><span class="delete-btn" onclick="deleteUser(${user.id})">Eliminar</span></td>`;
             tbody.appendChild(row);
           });
         };
@@ -347,9 +348,9 @@
         const request = store.getAll();
         request.onsuccess = () => {
           const users = request.result;
-          let csv = 'Nombre,Email,Check-in\n';
+          let csv = 'Nombre,Email,Número de Serie,Check-in\n';
           users.forEach(user => {
-            csv += `${user.name},${user.email},${user.checked_in}\n`;
+            csv += `${user.name},${user.email},${user.serial_number},${user.checked_in}\n`;
           });
           const blob = new Blob([csv], { type: 'text/csv' });
           const link = document.createElement('a');
@@ -387,6 +388,22 @@
               }
             }
           });
+        };
+      }
+    }
+
+    function deleteUser(userId) {
+      if (db && confirm('¿Estás seguro de eliminar este registro?')) {
+        const tx = db.transaction(['users'], 'readwrite');
+        const store = tx.objectStore('users');
+        store.delete(userId).onsuccess = () => {
+          fetchWithRetry(`https://event-registration-system-9yji.onrender.com/api/users/${userId}`, {
+            method: 'DELETE'
+          }).then(() => {
+            loadUsers();
+            updateStats();
+            alert('Registro eliminado exitosamente');
+          }).catch(err => alert('Error al eliminar en el servidor: ' + err.message));
         };
       }
     }
