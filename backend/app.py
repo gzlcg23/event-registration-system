@@ -7,7 +7,7 @@ import base64
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})  # Habilitamos CORS para todas las origins (para pruebas)
+CORS(app, resources={r"/api/*": {"origins": "*"}})  # CORS habilitado
 
 # Configuración de la base de datos desde la variable de entorno de Render
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -61,10 +61,12 @@ def register():
 def get_users():
     try:
         users = User.query.all()
+        if not users:
+            return jsonify([]), 200  # Retorna un array vacío si no hay usuarios
         return jsonify([{'id': u.id, 'name': u.name, 'email': u.email, 'checked_in': u.checked_in} for u in users])
     except Exception as e:
         print(f"Error en get_users: {str(e)}")
-        return jsonify({'error': 'Error al obtener usuarios'}), 500
+        return jsonify({'error': 'Error al obtener usuarios', 'detail': str(e)}), 500
 
 @app.route('/api/sync', methods=['POST'])
 def sync():
@@ -72,13 +74,13 @@ def sync():
         data = request.json
         for user_data in data:
             user = User.query.get(user_data['id'])
-            if user and not user.checked_in and user_data['checked_in']:
+            if user and not user.checked_in and user_data.get('checked_in'):
                 user.checked_in = True
                 db.session.commit()
         return jsonify({'message': 'Sincronizado exitosamente'})
     except Exception as e:
         print(f"Error en sync: {str(e)}")
-        return jsonify({'error': 'Error al sincronizar'}), 500
+        return jsonify({'error': 'Error al sincronizar', 'detail': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

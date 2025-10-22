@@ -119,12 +119,13 @@
         try {
           console.log(`Intentando ${url} con método ${options.method} (intento ${i + 1}/${retries})`);
           const response = await fetch(url, options);
-          console.log(`Respuesta: ${response.status} ${response.statusText}, Contenido: ${await response.text()}`);
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            return response;
+          console.log(`Respuesta: ${response.status} ${response.statusText}`);
+          if (response.ok) {
+            const text = await response.text();
+            console.log(`Contenido: ${text}`);
+            return { response, text };  // Retornar ambos para uso posterior
           } else {
-            console.log(`Respuesta no JSON, reintentando... (intento ${i + 1}/${retries})`);
+            console.log(`Error: ${await response.text()}`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         } catch (error) {
@@ -138,26 +139,22 @@
     async function register() {
       const name = document.getElementById('name').value;
       const email = document.getElementById('email').value;
-      const company = document.getElementById('company').value || null; // Opcional
-      const position = document.getElementById('position').value || null; // Opcional
+      const company = document.getElementById('company').value || null;
+      const position = document.getElementById('position').value || null;
       const passType = document.getElementById('passType').value;
-      const interests = document.getElementById('interests').value || null; // Opcional
-      console.log('Datos enviados:', { name, email, company, position, passType, interests }); // Depuración
+      const interests = document.getElementById('interests').value || null;
+      console.log('Datos enviados:', { name, email, company, position, passType, interests });
       if (!name || !email) {
         alert('Por favor, ingresa nombre y email.');
         return;
       }
       try {
-        const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/register', {
+        const { response, text } = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, company, position, passType, interests })
         });
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP error! status: ${response.status}, Detalle: ${errorText}`);
-        }
-        const result = await response.json();
+        const result = JSON.parse(text);  // Parsear el texto manualmente
         console.log('Resultado del registro:', result);
         if (result.qr_code) {
           const qrImage = document.getElementById('qrImage');
@@ -184,10 +181,10 @@
 
     async function downloadData() {
       try {
-        const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/users', {
+        const { response, text } = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/users', {
           method: 'GET'
         });
-        const users = await response.json();
+        const users = JSON.parse(text);
         const tx = db.transaction(['users'], 'readwrite');
         const store = tx.objectStore('users');
         users.forEach(user => store.put(user));
@@ -250,12 +247,12 @@
       request.onsuccess = async () => {
         const users = request.result.filter(u => u.checked_in);
         try {
-          const response = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/sync', {
+          const { response, text } = await fetchWithRetry('https://event-registration-system-9yji.onrender.com/api/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(users)
           });
-          const result = await response.json();
+          const result = JSON.parse(text);
           alert(result.message);
           updateStats();
           if (role === 'admin') loadUsers();
