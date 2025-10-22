@@ -21,3 +21,7 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+request.onerror = () => {
+  console.error('Error inicializando IndexedDB:', request.error);
+  reject(request.error);
+};
