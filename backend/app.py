@@ -92,7 +92,7 @@ def send_email():
             return jsonify({'error': 'Email y QR requeridos'}), 400
 
         sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
-        from_email = Email(os.environ.get('EMAIL_USER', 'hola@redspace.mx'))
+        from_email = Email(os.environ.get('EMAIL_USER', 'gonzalo.cg.23@gmail.com'))
         to_email = To(email)
         subject = 'Tu QR para el Evento'
         content = Content("text/plain", 'Adjunto encontrarás tu QR para el check-in del evento.')
