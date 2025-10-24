@@ -5,3 +5,4 @@ qrcode==7.4.2
 pillow==9.5.0
 psycopg2-binary==2.9.6
 sendgrid==6.9.7
+alembic==1.13.1
